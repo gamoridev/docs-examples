@@ -1,14 +1,14 @@
-import { ApolloServer } from '@apollo/server';
-import { expressMiddleware } from '@apollo/server/express4';
-import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
-import express from 'express';
-import { createServer } from 'http';
-import { makeExecutableSchema } from '@graphql-tools/schema';
-import { WebSocketServer } from 'ws';
-import { useServer } from 'graphql-ws/lib/use/ws';
-import { PubSub } from 'graphql-subscriptions';
-import bodyParser from 'body-parser';
-import cors from 'cors';
+import { ApolloServer } from "@apollo/server";
+import { expressMiddleware } from "@apollo/server/express4";
+import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
+import express from "express";
+import { createServer } from "http";
+import { makeExecutableSchema } from "@graphql-tools/schema";
+import { WebSocketServer } from "ws";
+import { useServer } from "graphql-ws/lib/use/ws";
+import { PubSub } from "graphql-subscriptions";
+import bodyParser from "body-parser";
+import cors from "cors";
 
 const PORT = 4000;
 const pubsub = new PubSub();
@@ -23,7 +23,7 @@ const typeDefs = `#graphql
   }
 
   type Subscription {
-    numberIncremented: Int
+    message: String
   }
 `;
 
@@ -35,8 +35,8 @@ const resolvers = {
     },
   },
   Subscription: {
-    numberIncremented: {
-      subscribe: () => pubsub.asyncIterator(['NUMBER_INCREMENTED']),
+    message: {
+      subscribe: () => pubsub.asyncIterator(["MESSAGE_SENT"]),
     },
   },
 };
@@ -53,7 +53,7 @@ const httpServer = createServer(app);
 // Set up WebSocket server.
 const wsServer = new WebSocketServer({
   server: httpServer,
-  path: '/graphql',
+  path: "/graphql",
 });
 const serverCleanup = useServer({ schema }, wsServer);
 
@@ -78,20 +78,29 @@ const server = new ApolloServer({
 });
 
 await server.start();
-app.use('/graphql', cors<cors.CorsRequest>(), bodyParser.json(), expressMiddleware(server));
+app.use(
+  "/graphql",
+  cors<cors.CorsRequest>(),
+  bodyParser.json(),
+  expressMiddleware(server)
+);
 
 // Now that our HTTP server is fully set up, actually listen.
 httpServer.listen(PORT, () => {
   console.log(`🚀 Query endpoint ready at http://localhost:${PORT}/graphql`);
-  console.log(`🚀 Subscription endpoint ready at ws://localhost:${PORT}/graphql`);
+  console.log(
+    `🚀 Subscription endpoint ready at ws://localhost:${PORT}/graphql`
+  );
 });
 
 // In the background, increment a number every second and notify subscribers when it changes.
-function incrementNumber() {
+function sendMessage() {
   currentNumber++;
-  pubsub.publish('NUMBER_INCREMENTED', { numberIncremented: currentNumber });
-  setTimeout(incrementNumber, 1000);
+  pubsub.publish("MESSAGE_SENT", {
+    message: `Mensagem #${currentNumber} recebida`,
+  });
+  setTimeout(sendMessage, 5000);
 }
 
 // Start incrementing
-incrementNumber();
+sendMessage();
